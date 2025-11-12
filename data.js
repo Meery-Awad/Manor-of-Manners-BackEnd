@@ -24,7 +24,7 @@ const users = new mongoose.Schema({
     courses: [courseSubSchema],
 }, { timestamps: true });
 
-// Schema للكورس
+
 const courses = new mongoose.Schema({
     name: String,
     description: String,
@@ -36,7 +36,7 @@ const courses = new mongoose.Schema({
     recommended: Boolean,
     link: String,
     categories: [String],
-    // إضافة مصفوفة المشاركين
+   
     joinedUsers: [
         {
             userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
