@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const { User } = require("../data");
+const { Course } = require("../data");
 const { ClientSecretCredential } = require("@azure/identity");
 const { Client } = require('@microsoft/microsoft-graph-client');
 require('isomorphic-fetch');
@@ -116,7 +117,7 @@ exports.contactMessageAlert = async (req, res) => {
     };
 
     await client.api(`/users/${SENDER_EMAIL}/sendMail`).post(mail);
-    console.log('true')
+
     res.status(200).json({ message: "Contact message sent to admin successfully" });
   } catch (err) {
     console.error("❌ Error sending contact message:", err);
@@ -124,4 +125,62 @@ exports.contactMessageAlert = async (req, res) => {
   }
 };
 
+exports.notificationBeforeCourse = async () => {
+  try {
+    const now = new Date();
+    const client = getGraphClient();
+
+    // جلب كل الكورسات
+    const courses = await Course.find();
+
+    for (const course of courses) {
+      if (!course.date || !course.time || !course.bookedUsers?.length) continue;
+
+      // حساب موعد الكورس ووقته
+      const courseDateTime = new Date(`${course.date} ${course.time}`);
+      const diff = (courseDateTime - now) / (1000 * 60); 
+
+      // إذا بقي أقل من 65 دقيقة ولم يُرسل إشعار سابق
+      if (diff > 0 && diff <= 65 && !course.notifiedBeforeStart) {
+        for (const user of course.bookedUsers) {
+          const mail = {
+            message: {
+              subject: `⏰ Reminder: Your course "${course.name}" starts soon!`,
+              body: {
+                contentType: "HTML",
+                content: `
+                <div style="font-family:Arial,sans-serif;line-height:1.6;color:#333">
+                  <h2>Course Reminder</h2>
+                  <p>Hi ${user.name},</p>
+                  <p>This is a friendly reminder that your course <b>${course.name}</b> will start in about one hour.</p>
+                  <p><b>Date:</b> ${course.date}</p>
+                  <p><b>Time:</b> ${course.time} - ${course.endtime}</p>
+                  <a href="https://madeformanners.com/courses" 
+                     style="background:#C6A662;color:white;padding:10px 18px;text-decoration:none;border-radius:6px">
+                     Join Course
+                  </a>
+                  <br/><br/>
+                  <small>This is an automated reminder — please do not reply.</small>
+                </div>
+              `,
+              },
+              toRecipients: [{ emailAddress: { address: user.email } }],
+            },
+            saveToSentItems: "true",
+          };
+
+          await client.api(`/users/${SENDER_EMAIL}/sendMail`).post(mail);
+        }
+
+        // حفظ أن الإشعارات تم إرسالها حتى لا تتكرر
+        course.notifiedBeforeStart = true;
+        await course.save();
+      }
+    }
+
+    console.log("✅ Course reminder check completed.");
+  } catch (err) {
+    console.error("❌ Error sending course reminders:", err);
+  }
+};
 

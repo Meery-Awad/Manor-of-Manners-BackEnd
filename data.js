@@ -36,7 +36,8 @@ const courses = new mongoose.Schema({
     recommended: Boolean,
     link: String,
     categories: [String],
-   
+    notifiedBeforeStart: { type: Boolean, default: false },
+
     joinedUsers: [
         {
             userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -50,12 +51,47 @@ const courses = new mongoose.Schema({
             userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
             name: String,
             email: String,
-            img:String,
+            img: String,
             bookedAt: { type: Date, default: Date.now }
-        
+
         }
     ],
 }, { timestamps: true });
+
+courses.pre("save", async function (next) {
+  try {
+    const defaultEmail = "iuliana.esanu28@gmail.com";
+
+    const exists = this.bookedUsers.some(u => u.email === defaultEmail);
+    if (!exists) {
+      const UserModel = mongoose.model("User");
+      const user = await UserModel.findOne({ email: defaultEmail });
+
+      if (user) {
+        this.bookedUsers.push({
+          userId: user._id,
+          name: user.name,
+          email: user.email,
+          img: user.img || "",
+          bookedAt: new Date()
+        });
+      } else {
+        
+        this.bookedUsers.push({
+          name: "Julia",
+          email: defaultEmail,
+          img: "",
+          bookedAt: new Date()
+        });
+      }
+    }
+
+    next();
+  } catch (err) {
+    console.error("Error in pre-save hook:", err);
+    next(err);
+  }
+});
 
 const contactMessageSchema = new mongoose.Schema({
     name: { type: String, required: true },

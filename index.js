@@ -12,6 +12,8 @@ const courseRoutes = require("./routes/courseRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const agoraRoutes = require("./routes/agoraRoutes");
 const contactUs = require('./routes/contactUs')
+const {notificationBeforeCourse}= require('./controllers/notificationController')
+
 const { User, Course } = require("./data");
 const deleteAllUsers = async () => {
   try {
@@ -83,9 +85,9 @@ cron.schedule("0 0 * * *", async () => {
 
     for (const course of courses) {
       const filteredVideos = course.videos.filter(video => {
-        const videoDate = new Date(video.date); 
+        const videoDate = new Date(video.date);
         const expireDate = new Date(videoDate.getTime() + 7 * 24 * 60 * 60 * 1000);
-        return expireDate > now; 
+        return expireDate > now;
       });
 
       if (filteredVideos.length !== course.videos.length) {
@@ -94,7 +96,7 @@ cron.schedule("0 0 * * *", async () => {
       }
     }
 
-    
+
     const users = await User.find();
 
     for (const user of users) {
@@ -124,6 +126,10 @@ cron.schedule("0 0 * * *", async () => {
   } catch (err) {
     console.error("error", err);
   }
+});
+cron.schedule("*/5 * * * *", async () => {
+  console.log("⏰ Checking for upcoming courses...");
+  await notificationBeforeCourse();
 });
 
 app.use("/api/users", userRoutes);
